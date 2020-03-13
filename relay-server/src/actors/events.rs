@@ -526,6 +526,7 @@ impl EventProcessor {
 
             // session data is never considered as part of deduplication
             ItemType::Session => false,
+            ItemType::SessionBatch => false,
         }
     }
 

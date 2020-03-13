@@ -16,7 +16,7 @@ use serde::{ser::Error, Serialize};
 
 use relay_common::{metric, LogError, ProjectId, Uuid};
 use relay_config::{Config, KafkaTopic};
-use relay_general::protocol::{EventId, EventType, SessionStatus, SessionUpdate};
+use relay_general::protocol::{EventId, EventType, SessionBatch, SessionStatus, SessionUpdate};
 use relay_general::types;
 
 use crate::constants::MAX_SESSION_DAYS;
@@ -147,6 +147,27 @@ impl StoreForwarder {
         self.produce(KafkaTopic::Attachments, message)
     }
 
+    fn produce_session_from_batch(
+        &self,
+        org_id: u64,
+        project_id: ProjectId,
+        event_retention: u16,
+        item: &Item,
+    ) -> Result<(), StoreError> {
+        let batch = match SessionBatch::parse(&item.payload()) {
+            Ok(batch) => batch,
+            Err(error) => {
+                // Skip gracefully here to allow sending other messages.
+                log::error!("failed to store session batch: {}", LogError(&error));
+                return Ok(());
+            }
+        };
+        for session in batch.into_updates_iter() {
+            self.produce_session_update(org_id, project_id, event_retention, session)?;
+        }
+        Ok(())
+    }
+
     fn produce_session(
         &self,
         org_id: u64,
@@ -162,13 +183,16 @@ impl StoreForwarder {
                 return Ok(());
             }
         };
+        self.produce_session_update(org_id, project_id, event_retention, session)
+    }
 
-        if session.sequence == u64::max_value() {
-            // TODO(ja): Move this to normalization eventually.
-            log::trace!("skipping session due to sequence overflow");
-            return Ok(());
-        }
-
+    fn produce_session_update(
+        &self,
+        org_id: u64,
+        project_id: ProjectId,
+        event_retention: u16,
+        session: SessionUpdate,
+    ) -> Result<(), StoreError> {
         let session_age = Utc::now() - session.started;
         if session_age > Duration::days(MAX_SESSION_DAYS.into()) {
             log::trace!("skipping session older than {} days", MAX_SESSION_DAYS);
@@ -442,6 +466,9 @@ impl Handler<StoreEnvelope> for StoreForwarder {
                 }
                 ItemType::Session => {
                     self.produce_session(organization_id, project_id, retention, item)?;
+                }
+                ItemType::SessionBatch => {
+                    self.produce_session_from_batch(organization_id, project_id, retention, item)?;
                 }
                 _ => {}
             }
