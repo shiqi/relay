@@ -137,8 +137,9 @@ impl ServiceState {
             outcome_producer.clone(),
             redis_pool.clone(),
         )
-        .context(ServerErrorKind::ConfigError)?
-        .start();
+        .context(ServerErrorKind::ConfigError)?;
+
+        let event_manager = Arbiter::start(move |_| event_manager);
 
         let project_cache =
             ProjectCache::new(config.clone(), upstream_relay.clone(), redis_pool).start();
