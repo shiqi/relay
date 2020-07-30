@@ -18,6 +18,7 @@ pub struct UnknownValueTypeError;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ValueType {
     String,
+    Binary,
     Number,
     Boolean,
     DateTime,
@@ -35,6 +36,9 @@ pub enum ValueType {
     Breadcrumb,
     Span,
     ClientSdkInfo,
+    Memory,
+    StackMemory,
+    Attachments,
 }
 
 impl ValueType {
@@ -45,6 +49,7 @@ impl ValueType {
     pub fn name(self) -> &'static str {
         match self {
             ValueType::String => "string",
+            ValueType::Binary => "binary",
             ValueType::Number => "number",
             ValueType::Boolean => "boolean",
             ValueType::DateTime => "datetime",
@@ -62,6 +67,9 @@ impl ValueType {
             ValueType::Breadcrumb => "breadcrumb",
             ValueType::Span => "span",
             ValueType::ClientSdkInfo => "sdk",
+            ValueType::Memory => "memory",
+            ValueType::StackMemory => "stackmemory",
+            ValueType::Attachments => "attachments",
         }
     }
 }
@@ -78,6 +86,7 @@ impl FromStr for ValueType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
             "string" => ValueType::String,
+            "binary" => ValueType::Binary,
             "number" => ValueType::Number,
             "bool" | "boolean" => ValueType::Boolean,
             "datetime" => ValueType::DateTime,
@@ -94,6 +103,9 @@ impl FromStr for ValueType {
             "thread" => ValueType::Thread,
             "breadcrumb" => ValueType::Breadcrumb,
             "sdk" => ValueType::ClientSdkInfo,
+            "memory" => ValueType::Memory,
+            "stackmemory" => ValueType::StackMemory,
+            "attachments" => ValueType::Attachments,
             _ => return Err(UnknownValueTypeError),
         })
     }
